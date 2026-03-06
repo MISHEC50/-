@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📚 יומן הקריאה שלי</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#302b63">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="יומן קריאה">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Heebo', 'Segoe UI', Arial, sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(160deg, #0f0c29, #302b63, #24243e);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 15px 40px;
+      overflow-x: hidden;
+    }
+
+    canvas#stars {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none; z-index: 0;
+    }
+
+    .screen { display: none; width: 100%; max-width: 560px; position: relative; z-index: 1; flex-direction: column; align-items: center; }
+    .screen.active { display: flex; }
+
+    /* ── NAME SCREEN ── */
+    .name-card {
+      background: rgba(255,255,255,0.97);
+      border-radius: 32px;
+      padding: 40px 35px;
+      text-align: center;
+      box-shadow: 0 25px 70px rgba(0,0,0,0.55);
+      width: 100%;
+      animation: popIn .7s cubic-bezier(.36,1.56,.64,1);
+    }
+    .name-card .big-icon { font-size: 4.5em; margin-bottom: 12px; display: block; animation: wiggle 2s infinite; }
+    .name-card h1 { font-size: 2.1em; font-weight: 900; color: #1a1a2e; margin-bottom: 6px; }
+    .name-card .school-tag {
+      display: inline-block;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      padding: 6px 18px;
+      border-radius: 20px;
+      font-size: .95em;
+      font-weight: 700;
+      margin-bottom: 22px;
+    }
+    .name-card p { color: #555; font-size: 1.1em; margin-bottom: 22px; }
+    .name-input {
+      width: 100%;
+      padding: 14px 18px;
+      font-size: 1.35em;
+      border: 3px solid #e0e0e0;
+      border-radius: 16px;
+      text-align: center;
+      font-family: inherit;
+      transition: border-color .3s, box-shadow .3s;
+      margin-bottom: 18px;
+      color: #1a1a2e;
+    }
+    .name-input:focus { outline: none; border-color: #764ba2; box-shadow: 0 0 0 4px rgba(118,75,162,.15); }
+    .start-btn {
+      background: linear-gradient(135deg, #f093fb, #f5576c);
+      color: white;
+      border: none;
+      padding: 14px 38px;
+      font-size: 1.25em;
+      border-radius: 20px;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 900;
+      box-shadow: 0 8px 25px rgba(240,93,251,.45);
+      transition: transform .2s, box-shadow .2s;
+    }
+    .start-btn:hover { transform: translateY(-3px) scale(1.03); box-shadow: 0 14px 35px rgba(240,93,251,.6); }
+    .start-btn:active { transform: scale(.97); }
+
+    /* ── TRACKER SCREEN ── */
+    .header-box {
+      text-align: center;
+      margin-bottom: 20px;
+      width: 100%;
+    }
+    .school-pill {
+      display: inline-block;
+      background: rgba(255,255,255,.13);
+      color: #fff;
+      padding: 7px 22px;
+      border-radius: 22px;
+      font-size: .95em;
+      font-weight: 700;
+      border: 1.5px solid rgba(255,255,255,.22);
+      backdrop-filter: blur(8px);
+      margin-bottom: 12px;
+      letter-spacing: .3px;
+    }
+    .hi-label { color: rgba(255,255,255,.75); font-size: 1.05em; margin-bottom: 4px; }
+    .student-name {
+      font-size: 2.6em;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 4px 18px rgba(0,0,0,.45);
+      line-height: 1.15;
+    }
+    .week-label { color: rgba(255,255,255,.6); font-size: .92em; margin-top: 8px; }
+
+    /* progress */
+    .progress-box {
+      width: 100%;
+      background: rgba(255,255,255,.1);
+      border-radius: 18px;
+      padding: 14px 18px;
+      margin-bottom: 18px;
+      border: 1px solid rgba(255,255,255,.18);
+      backdrop-filter: blur(8px);
+    }
+    .prog-row { display: flex; justify-content: space-between; color: #fff; font-size: .9em; margin-bottom: 9px; font-weight: 700; }
+    .prog-bar { height: 13px; background: rgba(255,255,255,.18); border-radius: 10px; overflow: hidden; }
+    .prog-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #43e97b, #38f9d7);
+      border-radius: 10px;
+      transition: width .55s cubic-bezier(.4,2,.6,1);
+      width: 0%;
+    }
+
+    /* day cards */
+    .days-wrap { width: 100%; display: flex; flex-direction: column; gap: 11px; }
+
+    .day-card {
+      background: rgba(255,255,255,.96);
+      border-radius: 20px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 7px 22px rgba(0,0,0,.22);
+      transition: transform .2s, box-shadow .2s;
+    }
+    .day-card.done {
+      background: linear-gradient(135deg, #c8f7c5 0%, #a8edea 100%);
+    }
+    .day-card.pop { animation: cardPop .55s cubic-bezier(.36,1.56,.64,1); }
+
+    .left-part { display: flex; align-items: center; gap: 13px; }
+    .d-icon { font-size: 2.1em; filter: drop-shadow(0 2px 4px rgba(0,0,0,.15)); }
+    .d-name { font-size: 1.28em; font-weight: 700; color: #1a1a2e; }
+    .d-date { font-size: .82em; color: #888; margin-top: 2px; }
+
+    .right-part { display: flex; align-items: center; gap: 9px; }
+    .star { font-size: 1.7em; transform: scale(0); opacity: 0; transition: transform .45s cubic-bezier(.36,1.56,.64,1), opacity .3s; }
+    .star.show { transform: scale(1); opacity: 1; }
+
+    .read-btn {
+      padding: 9px 16px;
+      border-radius: 14px;
+      font-size: .88em;
+      cursor: pointer;
+      font-weight: 700;
+      font-family: inherit;
+      border: 2px solid transparent;
+      transition: all .25s;
+      white-space: nowrap;
+    }
+    .read-btn.no {
+      background: #f0f0f0;
+      color: #666;
+      border-color: #e0e0e0;
+    }
+    .read-btn.no:hover { background: #e2e2e2; transform: scale(1.04); }
+    .read-btn.yes {
+      background: linear-gradient(135deg, #43e97b, #38f9d7);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(67,233,123,.4);
+    }
+    .read-btn.yes:hover { transform: scale(1.05); }
+
+    /* all-done banner */
+    .all-done {
+      width: 100%;
+      background: linear-gradient(135deg, rgba(255,215,0,.18), rgba(255,140,0,.18));
+      border: 2px solid rgba(255,215,0,.55);
+      border-radius: 18px;
+      padding: 14px 18px;
+      text-align: center;
+      color: #FFD700;
+      font-size: 1.2em;
+      font-weight: 900;
+      margin-bottom: 16px;
+      display: none;
+      animation: popIn .5s ease;
+    }
+    .all-done.show { display: block; }
+
+    /* reset */
+    .reset-btn {
+      margin-top: 22px;
+      background: rgba(255,255,255,.12);
+      color: rgba(255,255,255,.65);
+      border: 1px solid rgba(255,255,255,.25);
+      padding: 9px 22px;
+      border-radius: 14px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: .85em;
+      transition: all .25s;
+    }
+    .reset-btn:hover { background: rgba(255,255,255,.22); color: #fff; }
+
+    /* floating emoji */
+    .floater {
+      position: fixed;
+      font-size: 2em;
+      pointer-events: none;
+      z-index: 999;
+      animation: floatUp 1.8s ease-out forwards;
+    }
+    @keyframes floatUp {
+      0%   { transform: translateY(0) scale(0) rotate(0deg); opacity: 1; }
+      50%  { transform: translateY(-110px) scale(1.3) rotate(15deg); opacity: 1; }
+      100% { transform: translateY(-220px) scale(.9) rotate(-10deg); opacity: 0; }
+    }
+
+    /* confetti */
+    .confetti { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1000; }
+    .cpiece {
+      position: absolute;
+      border-radius: 3px;
+      animation: cfFall linear forwards;
+    }
+    @keyframes cfFall {
+      0%   { transform: translateY(-60px) rotate(0deg); opacity: 1; }
+      80%  { opacity: 1; }
+      100% { transform: translateY(105vh) rotate(720deg); opacity: 0; }
+    }
+
+    /* animations */
+    @keyframes popIn {
+      0%   { transform: scale(.5) translateY(-30px); opacity: 0; }
+      65%  { transform: scale(1.06) translateY(0); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes cardPop {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(1.06); }
+      70%  { transform: scale(.97); }
+      100% { transform: scale(1); }
+    }
+    @keyframes wiggle {
+      0%,100% { transform: rotate(-8deg); }
+      50%      { transform: rotate(8deg); }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="stars"></canvas>
+  <div class="confetti" id="confetti"></div>
+
+  <!-- ── SCREEN 1: Enter name ── -->
+  <div class="screen active" id="s-name">
+    <div class="name-card">
+      <span class="big-icon">📚</span>
+      <h1>יומן הקריאה שלי</h1>
+      <div class="school-tag">📖 כיתה ב ממד השחר</div>
+      <p>הכניסו את שמכם כדי להתחיל! 😊</p>
+      <input class="name-input" id="nameInput" type="text" placeholder="השם שלי..." maxlength="30" autocomplete="off">
+      <br>
+      <button class="start-btn" onclick="startTracker()">🚀 בואו נתחיל!</button>
+    </div>
+  </div>
+
+  <!-- ── SCREEN 2: Weekly tracker ── -->
+  <div class="screen" id="s-tracker">
+    <div class="header-box">
+      <div class="school-pill">📖 כיתה ב ממד השחר</div>
+      <div class="hi-label">שלום לך,</div>
+      <div class="student-name" id="nameDisplay"></div>
+      <div class="week-label">📅 שבוע קריאה | י"ט – כ"ג אדר</div>
+    </div>
+
+    <div class="all-done" id="allDone">
+      🏆 כל הכבוד!! קראת כל השבוע! אלוף/אלופה אמיתי/ת! ⭐🎉
+    </div>
+
+    <div class="progress-box">
+      <div class="prog-row">
+        <span>📊 ההתקדמות שלי</span>
+        <span id="progText">0 מתוך 5</span>
+      </div>
+      <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+    </div>
+
+    <div class="days-wrap" id="daysWrap"></div>
+
+    <button class="reset-btn" onclick="doReset()">🔄 התחל מחדש</button>
+  </div>
+
+  <script>
+    const DAYS = [
+      { label: 'ראשון',  date: 'י"ט אדר',  icon: '📚' },
+      { label: 'שני',    date: "כ' אדר",   icon: '📖' },
+      { label: 'שלישי',  date: 'כ"א אדר', icon: '📗' },
+      { label: 'רביעי',  date: 'כ"ב אדר', icon: '📘' },
+      { label: 'חמישי',  date: 'כ"ג אדר', icon: '📙' },
+    ];
+
+    const POPS = ['⭐','🌟','✨','🎉','🎊','🏆','🎈','💫','🥳'];
+    const CF_COLORS = ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#ff6bff','#43e97b','#ffa94d'];
+
+    let readSet = new Set(JSON.parse(localStorage.getItem('readDays') || '[]'));
+    let sName   = localStorage.getItem('sName') || '';
+
+    /* ── Stars ── */
+    (function initStars() {
+      const cv = document.getElementById('stars');
+      const ctx = cv.getContext('2d');
+      let stars = [];
+      function resize() {
+        cv.width = window.innerWidth;
+        cv.height = window.innerHeight;
+        stars = Array.from({length: 180}, () => ({
+          x: Math.random() * cv.width,
+          y: Math.random() * cv.height,
+          r: Math.random() * 1.8 + .4,
+          a: Math.random(),
+          spd: Math.random() * .018 + .004
+        }));
+      }
+      resize();
+      window.addEventListener('resize', resize);
+      (function draw() {
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        stars.forEach(s => {
+          s.a += s.spd;
+          if (s.a > 1 || s.a < 0) s.spd = -s.spd;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r, 0, 2*Math.PI);
+          ctx.fillStyle = `rgba(255,255,255,${Math.abs(s.a)})`;
+          ctx.fill();
+        });
+        requestAnimationFrame(draw);
+      })();
+    })();
+
+    /* ── Start ── */
+    function startTracker() {
+      const v = document.getElementById('nameInput').value.trim();
+      if (!v) {
+        const inp = document.getElementById('nameInput');
+        inp.style.borderColor = '#ff6b6b';
+        inp.placeholder = '😊 אנא הכנס/י שם';
+        inp.focus();
+        return;
+      }
+      sName = v;
+      localStorage.setItem('sName', v);
+      showTracker();
+    }
+
+    function showTracker() {
+      document.getElementById('s-name').classList.remove('active');
+      document.getElementById('s-tracker').classList.add('active');
+      document.getElementById('nameDisplay').textContent = `🌟 ${sName} 🌟`;
+      renderDays();
+      updateProgress();
+    }
+
+    /* ── Render ── */
+    function renderDays() {
+      const wrap = document.getElementById('daysWrap');
+      wrap.innerHTML = '';
+      DAYS.forEach((d, i) => {
+        const done = readSet.has(i);
+        const div = document.createElement('div');
+        div.className = 'day-card' + (done ? ' done' : '');
+        div.id = 'dc' + i;
+        div.innerHTML = `
+          <div class="left-part">
+            <div class="d-icon">${d.icon}</div>
+            <div>
+              <div class="d-name">${d.label}</div>
+              <div class="d-date">${d.date}</div>
+            </div>
+          </div>
+          <div class="right-part">
+            <div class="star ${done ? 'show' : ''}" id="st${i}">⭐</div>
+            <button class="read-btn ${done ? 'yes' : 'no'}" id="rb${i}" onclick="toggle(${i})">
+              ${done ? '✅ קראתי!' : '📖 עוד לא קראתי'}
+            </button>
+          </div>`;
+        wrap.appendChild(div);
+      });
+    }
+
+    function toggle(i) {
+      const wasDone = readSet.has(i);
+      wasDone ? readSet.delete(i) : readSet.add(i);
+      localStorage.setItem('readDays', JSON.stringify([...readSet]));
+
+      const done = !wasDone;
+      const card = document.getElementById('dc' + i);
+      const btn  = document.getElementById('rb' + i);
+      const star = document.getElementById('st' + i);
+
+      card.className = 'day-card' + (done ? ' done' : '') + ' pop';
+      setTimeout(() => card.classList.remove('pop'), 600);
+      btn.className  = 'read-btn ' + (done ? 'yes' : 'no');
+      btn.textContent = done ? '✅ קראתי!' : '📖 עוד לא קראתי';
+      done ? star.classList.add('show') : star.classList.remove('show');
+
+      if (done) spawnFloaters(card);
+      updateProgress();
+    }
+
+    function updateProgress() {
+      const n = readSet.size, tot = DAYS.length;
+      document.getElementById('progFill').style.width = (n / tot * 100) + '%';
+      document.getElementById('progText').textContent = `${n} מתוך ${tot}`;
+      const ad = document.getElementById('allDone');
+      if (n === tot) { ad.classList.add('show'); launchConfetti(); }
+      else ad.classList.remove('show');
+    }
+
+    /* ── FX ── */
+    function spawnFloaters(card) {
+      const r = card.getBoundingClientRect();
+      for (let k = 0; k < 6; k++) {
+        setTimeout(() => {
+          const el = document.createElement('div');
+          el.className = 'floater';
+          el.textContent = POPS[Math.floor(Math.random() * POPS.length)];
+          el.style.left = (r.left + Math.random() * r.width) + 'px';
+          el.style.top  = (r.top + 10) + 'px';
+          document.body.appendChild(el);
+          setTimeout(() => el.remove(), 1900);
+        }, k * 90);
+      }
+    }
+
+    function launchConfetti() {
+      const box = document.getElementById('confetti');
+      for (let i = 0; i < 70; i++) {
+        setTimeout(() => {
+          const p = document.createElement('div');
+          p.className = 'cpiece';
+          const sz = Math.random() * 9 + 5;
+          p.style.cssText = `
+            left:${Math.random()*100}vw;
+            width:${sz}px; height:${sz}px;
+            background:${CF_COLORS[Math.floor(Math.random()*CF_COLORS.length)]};
+            border-radius:${Math.random() > .5 ? '50%' : '2px'};
+            animation-duration:${Math.random()*2.5+1.5}s;
+          `;
+          box.appendChild(p);
+          setTimeout(() => p.remove(), 4500);
+        }, i * 45);
+      }
+    }
+
+    /* ── Reset ── */
+    function doReset() {
+      if (!confirm('האם אתה/את בטוח/ה שרוצה להתחיל מחדש?')) return;
+      readSet.clear();
+      localStorage.removeItem('readDays');
+      localStorage.removeItem('sName');
+      sName = '';
+      document.getElementById('s-tracker').classList.remove('active');
+      document.getElementById('s-name').classList.add('active');
+      document.getElementById('nameInput').value = '';
+    }
+
+    /* ── Init ── */
+    document.getElementById('nameInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') startTracker();
+    });
+
+    if (sName) showTracker();
+
+    /* ── Service Worker ── */
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js')
+        .catch(err => console.log('SW error:', err));
+    }
+  </script>
+</body>
+</html>
